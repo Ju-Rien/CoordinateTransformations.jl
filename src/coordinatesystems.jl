@@ -328,3 +328,36 @@ Base.convert(::Type{V}, c::Cylindrical) where {V <: StaticVector} = convert(V, C
 
 Base.convert(::Type{Spherical}, c::Cylindrical) = SphericalFromCylindrical()(c)
 Base.convert(::Type{Cylindrical}, s::Spherical) = CylindricalFromSpherical()(s)
+
+
+##############################
+### N-D Coordinate Systems ###
+##############################
+"""
+    Hyperspherical(r, ...)
+
+N-D spherical coordinates
+
+...TODO...
+
+```jldoctest
+julia> print(TODO)
+```
+"""
+struct Hyperspherical{T,A}
+    r::T
+    θ::A
+    ϕ::A
+
+    Hyperspherical{T, A}(r, θ, ϕ) where {T, A} = new(r, θ, ϕ)
+end
+
+function Hyperspherical(r, θ, ϕ)
+    r2, θ2, ϕ2 = promote(r, θ, ϕ)
+
+    return Hyperspherical{typeof(r2), typeof(θ2)}(r2, θ2, ϕ2)
+end
+
+Base.show(io::IO, x::Hyperspherical) = print(io, "Hyperspherical(r=$(x.r), θ=$(x.θ) rad, ϕ=$(x.ϕ) rad)")
+Base.isapprox(p1::Hyperspherical, p2::Hyperspherical; kwargs...) =
+    isapprox(p1.r, p2.r; kwargs...) && isapprox(p1.θ, p2.θ; kwargs...) && isapprox(p1.ϕ, p2.ϕ; kwargs...)
