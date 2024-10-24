@@ -330,34 +330,210 @@ Base.convert(::Type{Spherical}, c::Cylindrical) = SphericalFromCylindrical()(c)
 Base.convert(::Type{Cylindrical}, s::Spherical) = CylindricalFromSpherical()(s)
 
 
+####   //\   ####   //\   ####   //\   ###############################   //\   ####   //\   ####   //\   #####
+####  // \\  ####  // \\  ####  // \\  ####                       ####  // \\  ####  // \\  ####  // \\  #####
+#### //   \\ #### //   \\ #### //   \\ ####                       #### //   \\ #### //   \\ #### //   \\ #####
+####//     \\####//     \\####//     \\###############################//     \\####//     \\####//     \\#####
+##############################################################################################################
+##############################################################################################################
+## ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ###
+######    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####
+#####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    #####
+##############################################################################################################
+#
+#     WW      WW      OOOO      RRRR       KKK KKK      SSSS      PPPPP        AAAA       CCCC     EEEEE     #
+#     WW      WW     OO  OO     RR  RR     KK KK       S          PP   PP     AA  AA     CC        EE        #
+#     WW  WW  WW     OO  OO     RRRR       KKKK         SSSS      PPPPP       AAAAAA     CC        EEEEE     #
+#     WW  WW  WW     OO  OO     RR RR      KK KK            S     PP          AA  AA     CC        EE        #
+#      WW    WW       OOOO      RR  RR     KK  KK       SSSS      PP          AA  AA      CCCC     EEEEE     #
+#
+##############################################################################################################
+####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ######
+###    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    #### ##
+##    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####  ##
+##############################################################################################################
+# v workspace v
+
 ##############################
 ### N-D Coordinate Systems ###
 ##############################
 """
-    Hyperspherical(r, ...)
+    Hyperspherical(r, (φ1, φ2, ..., φₙ₋₁))
 
-N-D spherical coordinates
+N-D hyperspherical coordinates
 
-...TODO...
+This struct represents a point in N-dimensional Euclidean space using hyperspherical coordinates. 
+The coordinates consist of a radial coordinate `r` and `N-1` angular coordinates `φ1, φ2, ..., φₙ₋₁`.
+
+Given a vector `v` with Cartesian coordinates `x₁, x₂, ..., xₙ`, the hyperspherical coordinates are defined as follows:
+
+* `r` is the radius, given by `norm(v, 2)`, representing the distance from the origin to the point.
+* `φ₁` is the first angular coordinate, representing the angle between the vector and the positive `x₁` axis (`φ₁ = atan(√(x₂² + x₃² + … + xₙ²), x₁)`).
+* `φ₂, φ₃, ..., φₙ₋₂` are the intermediate angular coordinates, each defined recursively as the angle between the projection of the vector onto the subspace orthogonal to the previous axes and the next coordinate axis (`φₖ = atan(√(xₖ₊₁² + x₃² + … + xₙ²), xₖ)`).
+* `φₙ₋₁` is the final angular coordinate, analogous to the azimuthal angle in 3D spherical coordinates, representing the angle between the vector projection on the last two axes (`φ₁ = atan(xₙ, x₁)`).
+
+There are some special cases where the Cartesian to Hyperspherical transform is not unique; φₖ for any k will be ambiguous whenever all of xₖ , xₖ₊₁, …, xₙ are zero; in this case φₖ is to be zero.
+
+The forward and inverse transformations between Cartesian and hyperspherical coordinates are implemented.
 
 ```jldoctest
-julia> print(TODO)
+julia> v = randn(SVector{4, Float64});  # A 4D vector
+
+julia> hsph = Hyperspherical(v);  # Convert to 4D hyperspherical coordinates
+
+julia> r = hsph.r; φ₁, φ₂, φ₃ = hsph.φ;
+
+julia> v_reconstructed = CartesianFromHyperspherical()(hsph);
+
+julia> v ≈ v_reconstructed  # Verify the inverse transformation
+true
 ```
 """
-struct Hyperspherical{T,A}
+struct Hyperspherical{T, A, N}
     r::T
-    θ::A
-    ϕ::A
+    φ::SVector{N_minus_1, A} where {N_minus_1}
 
-    Hyperspherical{T, A}(r, θ, ϕ) where {T, A} = new(r, θ, ϕ)
+    function Hyperspherical(r::T, φ::SVector{N_minus_1, A}) where {T, A, N_minus_1}
+        if N_minus_1 <= 1
+            throw(ArgumentError("N must be greater than 1"))
+        end
+        
+        new{T, A, N_minus_1+1}(r, φ)
+    end
 end
 
-function Hyperspherical(r, θ, ϕ)
-    r2, θ2, ϕ2 = promote(r, θ, ϕ)
+function Hyperspherical(args...)
+    @assert length(args)>0
 
-    return Hyperspherical{typeof(r2), typeof(θ2)}(r2, θ2, ϕ2)
+    if length(args)==1
+        # TODO
+    elseif length(args)==2
+        return Polar(args...)
+    end
+    println(typeof(SVector(args[2:end])))
+    return Hyperspherical(args[1], SVector(args[2:end]))
 end
 
-Base.show(io::IO, x::Hyperspherical) = print(io, "Hyperspherical(r=$(x.r), θ=$(x.θ) rad, ϕ=$(x.ϕ) rad)")
-Base.isapprox(p1::Hyperspherical, p2::Hyperspherical; kwargs...) =
-    isapprox(p1.r, p2.r; kwargs...) && isapprox(p1.θ, p2.θ; kwargs...) && isapprox(p1.ϕ, p2.ϕ; kwargs...)
+
+# # NON: on veut plutôt qu'il sépare la première coordonée et les autres, et crée les coordonées 
+# # en utilisant les bons types
+# function Hyperspherical(x::AbstractVector)
+#     HypersphericalFromCartesian()(x)
+# end
+
+# """
+#     HypersphericalFromCartesian()
+
+# Transformation from ND point to `Hyperspherical` type
+# """
+# struct HypersphericalFromCartesian <: Transformation; end
+# """
+#     CartesianFromHyperspherical()
+
+# Transformation from `Hyperspherical` type to `SVector{N}` type
+# """
+# struct CartesianFromHyperspherical <: Transformation; end
+
+
+# ############# ?
+# Base.show(io::IO, x::Hyperspherical) = print(io, "Hyperspherical(r=$(x.r), θ=$(x.θ) rad, ϕ=$(x.ϕ) rad)")
+# Base.isapprox(p1::Hyperspherical, p2::Hyperspherical; kwargs...) =
+#     isapprox(p1.r, p2.r; kwargs...) && isapprox(p1.θ, p2.θ; kwargs...) && isapprox(p1.ϕ, p2.ϕ; kwargs...)
+
+
+# function (::HypersphericalFromCartesian)(x::AbstractVector)
+#     N = length(x)
+#     r = norm(x)
+#     φ = NTuple{N-1, eltype(x)}(undef)
+
+#     φ[1] = atan2(norm(x[2:end]), x[1])
+#     for i in 2:(N-2)
+#         if norm(x[i:end]) == 0
+#             φ[i] = zero(eltype(x))
+#         else
+#             φ[i] = atan2(norm(x[i+1:end]), x[i])
+#         end
+#     end
+#     φ[N-1] = atan2(x[end], x[end-1])
+
+#     return Hyperspherical(r, φ)
+# end
+
+
+# ############# ?
+# function transform_deriv(::HypersphericalFromCartesian, x::AbstractVector)
+#     # TODO
+#     length(x) == 3 || error("Spherical transform takes a 3D coordinate")
+#     T = eltype(x)
+
+#     r = hypot(x[1], x[2], x[3])
+#     rxy = hypot(x[1], x[2])
+#     fxy = x[2] / x[1]
+#     cxy = one(T)/(x[1]*(one(T) + fxy*fxy))
+#     f = -x[3]/(rxy*r*r)
+
+#     @SMatrix [ x[1]/r   x[2]/r  x[3]/r;
+#           -fxy*cxy  cxy     zero(T);
+#            f*x[1]   f*x[2]  rxy/(r*r) ]
+# end
+
+
+# ############# ?
+# # TODO
+# transform_deriv_params(::HypersphericalFromCartesian, x::AbstractVector) =
+#     error("SphericalFromCartesian has no parameters")
+
+
+# function (::CartesianFromHyperspherical)(h::Hyperspherical)
+#     r, φ = h.r, h.φ
+#     N = length(φ) + 1
+#     x = MVector{N, eltype(r)}(undef)
+
+#     sin_prod = r
+#     for i in 1:(N-1)
+#         if i == N-1
+#             x[i] = sin_prod * cos(φ[i])
+#             x[i+1] = sin_prod * sin(φ[i])
+#         else
+#             x[i] = sin_prod * cos(φ[i])
+#             sin_prod *= sin(φ[i])
+#         end
+#     end
+
+#     return SVector{N}(x)
+# end
+    
+
+# ############# ?
+# function transform_deriv(::CartesianFromHyperspherical, x::Hyperspherical{T}) where T
+#     sθ, cθ = sincos(x.θ)
+#     sϕ, cϕ = sincos(x.ϕ)
+#     @SMatrix [cθ*cϕ -x.r*sθ*cϕ -x.r*cθ*sϕ ;
+#               sθ*cϕ  x.r*cθ*cϕ -x.r*sθ*sϕ ;
+#               sϕ     zero(T)    x.r * cϕ  ]
+# end
+
+# ############# ?
+# transform_deriv_params(::CartesianFromHyperspherical, x::Hyperspherical) =
+#     error("CartesianFromHyperspherical has no parameters")
+
+# # Interface
+# length(x::Hyperspherical) = length(φ) + 1
+
+# # Inverse composition
+# compose(::HypersphericalFromCartesian, ::CartesianFromHyperspherical) = IdentityTransformation()
+# compose(::CartesianFromHyperspherical, ::HypersphericalFromCartesian) = IdentityTransformation()
+
+
+# ^ workspace ^
+##############################################################################################################
+## ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ###
+######    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####
+#####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    ####    #####
+##############################################################################################################
+##############################################################################################################
+####\\     //####\\     //####\\     //################################\\     //####\\     //####\\     //####
+#### \\   // #### \\   // #### \\   // ####                        #### \\   // #### \\   // #### \\   // ####
+####  \\ //  ####  \\ //  ####  \\ //  ####                        ####  \\ //  ####  \\ //  ####  \\ //  ####
+####   \\/   ####   \\/   ####   \\/   ################################   \\/   ####   \\/   ####   \\/   ####
+
