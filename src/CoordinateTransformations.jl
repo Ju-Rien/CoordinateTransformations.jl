@@ -19,6 +19,7 @@ export SphericalFromCartesian, CartesianFromSpherical,
 
 # nD coordinate systems and their transformations
 export Hyperspherical
+export HypersphericalFromCartesian, CartesianFromHyperspherical
 
 # Common transformations
 export AbstractAffineMap

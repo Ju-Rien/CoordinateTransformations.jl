@@ -128,6 +128,10 @@ function Spherical(r, θ, ϕ)
     return Spherical{typeof(r2), typeof(θ2)}(r2, θ2, ϕ2)
 end
 
+function Spherical(x::AbstractVector)
+    return SphericalFromCartesian()(x)
+end
+
 Base.show(io::IO, x::Spherical) = print(io, "Spherical(r=$(x.r), θ=$(x.θ) rad, ϕ=$(x.ϕ) rad)")
 Base.isapprox(p1::Spherical, p2::Spherical; kwargs...) =
     isapprox(p1.r, p2.r; kwargs...) && isapprox(p1.θ, p2.θ; kwargs...) && isapprox(p1.ϕ, p2.ϕ; kwargs...)
@@ -149,6 +153,10 @@ function Cylindrical(r, θ, z)
     r2, θ2, z2 = promote(r, θ, z)
 
     return Cylindrical{typeof(r2), typeof(θ2)}(r2, θ2, z2)
+end
+
+function Cylindrical(x::AbstractVector)
+    return CylindricalFromCartesian()(x)
 end
 
 Base.show(io::IO, x::Cylindrical) = print(io, "Cylindrical(r=$(x.r), θ=$(x.θ) rad, z=$(x.z))")
@@ -330,6 +338,102 @@ Base.convert(::Type{Spherical}, c::Cylindrical) = SphericalFromCylindrical()(c)
 Base.convert(::Type{Cylindrical}, s::Spherical) = CylindricalFromSpherical()(s)
 
 
+
+
+
+
+
+
+
+
+
+##############################
+### N-D Coordinate Systems ###
+##############################
+"""
+    Hyperspherical(r, φ1, φ2, ..., φₙ₋₁)
+    Hyperspherical(r, Φ::SVector{N-1, φT})
+N-D hyperspherical coordinates
+
+This struct represents a point in N-dimensional Euclidean space using hyperspherical coordinates. 
+The coordinates consist of a radial coordinate `r` and `N-1` angular coordinates `φ1, φ2, ..., φₙ₋₁`.
+
+Given a vector `v` with Cartesian coordinates `x₁, x₂, ..., xₙ`, the hyperspherical coordinates are defined as follows:
+
+* `r` is the radius, given by `norm(v, 2)`, representing the distance from the origin to the point.
+* `φ₁` is the first angular coordinate, representing the angle between the vector and the positive `x₁` axis (`φ₁ = atan(√(x₂² + x₃² + … + xₙ²), x₁)`).
+* `φ₂, φ₃, ..., φₙ₋₂` are the intermediate angular coordinates, each defined recursively as the angle between the projection of the vector onto the subspace orthogonal to the previous axes and the next coordinate axis (`φₖ = atan(√(xₖ₊₁² + x₃² + … + xₙ²), xₖ)`).
+* `φₙ₋₁` is the final angular coordinate, analogous to the azimuthal angle in 3D spherical coordinates, representing the angle between the vector projection on the last two axes (`φ₁ = atan(xₙ, x₁)`).
+
+There are some special cases where the Cartesian to Hyperspherical transform is not unique; φₖ for any k will be ambiguous whenever all of xₖ , xₖ₊₁, …, xₙ are zero; in this case φₖ is to be zero.
+
+The forward and inverse transformations between Cartesian and hyperspherical coordinates are implemented.
+
+```jldoctest
+julia> v = randn(SVector{4, Float64});  # A 4D vector
+
+julia> hsph = Hyperspherical(v);  # Convert to 4D hyperspherical coordinates
+
+julia> r = hsph.r; φ₁, φ₂, φ₃ = hsph.Φ...;
+
+julia> v_reconstructed = CartesianFromHyperspherical()(hsph);
+
+julia> v ≈ v_reconstructed  # Verify the inverse transformation
+true
+```
+"""
+struct Hyperspherical{T, A, N}
+    r::T
+    Φ::SVector{N_minus_1, A} where {N_minus_1}
+
+    function Hyperspherical(r::T, Φ::SVector{N_minus_1, A}) where {T, A, N_minus_1}
+        if N_minus_1 <= 1
+            throw(ArgumentError("N must be greater than 1"))
+        end
+        
+        new{T, A, N_minus_1+1}(r, Φ)
+    end
+end
+
+function Hyperspherical(args...)
+    @assert length(args)>0
+
+    # Dispatch Hyperspherical(x::AbstractVector) should capture the case where args has length > 1
+    #   but is not a Tuple.
+    if length(args)==1
+        return args[1] # Trivial case, no need for Hyperspherical
+    elseif length(args)==2
+        return Polar(args...)
+    elseif length(args)==3
+        return Spherical(args...)
+    end
+
+    args = promote(args...)
+    println(typeof(SVector(args[2:end]))) # TODO: Remove
+    return Hyperspherical(args[1], SVector(args[2:end]))
+end
+
+function Hyperspherical(x::AbstractVector)
+    return HypersphericalFromCartesian()(x)
+end
+
+Base.show(io::IO, x::Hyperspherical) = print(io, "Hyperspherical(r=$(x.r), Φ=[ $(reduce((str1,str2)->"$(str1), $(str2)", string.(x.Φ))) ] rad)")
+Base.isapprox(p1::Hyperspherical, p2::Hyperspherical; kwargs...) = isapprox(p1.r, p2.r; kwargs...) && isapprox(p1.Φ, p2.Φ; kwargs...)
+
+"""
+    HypersphericalFromCartesian()
+
+Transformation from ND point to `Hyperspherical` type
+"""
+struct HypersphericalFromCartesian <: Transformation; end
+"""
+    CartesianFromHyperspherical()
+
+Transformation from `Hyperspherical` type to `SVector{N}` type
+"""
+struct CartesianFromHyperspherical <: Transformation; end
+
+
 ####   //\   ####   //\   ####   //\   ###############################   //\   ####   //\   ####   //\   #####
 ####  // \\  ####  // \\  ####  // \\  ####                       ####  // \\  ####  // \\  ####  // \\  #####
 #### //   \\ #### //   \\ #### //   \\ ####                       #### //   \\ #### //   \\ #### //   \\ #####
@@ -354,109 +458,76 @@ Base.convert(::Type{Cylindrical}, s::Spherical) = CylindricalFromSpherical()(s)
 ##############################################################################################################
 # v workspace v
 
-##############################
-### N-D Coordinate Systems ###
-##############################
-"""
-    Hyperspherical(r, (φ1, φ2, ..., φₙ₋₁))
-
-N-D hyperspherical coordinates
-
-This struct represents a point in N-dimensional Euclidean space using hyperspherical coordinates. 
-The coordinates consist of a radial coordinate `r` and `N-1` angular coordinates `φ1, φ2, ..., φₙ₋₁`.
-
-Given a vector `v` with Cartesian coordinates `x₁, x₂, ..., xₙ`, the hyperspherical coordinates are defined as follows:
-
-* `r` is the radius, given by `norm(v, 2)`, representing the distance from the origin to the point.
-* `φ₁` is the first angular coordinate, representing the angle between the vector and the positive `x₁` axis (`φ₁ = atan(√(x₂² + x₃² + … + xₙ²), x₁)`).
-* `φ₂, φ₃, ..., φₙ₋₂` are the intermediate angular coordinates, each defined recursively as the angle between the projection of the vector onto the subspace orthogonal to the previous axes and the next coordinate axis (`φₖ = atan(√(xₖ₊₁² + x₃² + … + xₙ²), xₖ)`).
-* `φₙ₋₁` is the final angular coordinate, analogous to the azimuthal angle in 3D spherical coordinates, representing the angle between the vector projection on the last two axes (`φ₁ = atan(xₙ, x₁)`).
-
-There are some special cases where the Cartesian to Hyperspherical transform is not unique; φₖ for any k will be ambiguous whenever all of xₖ , xₖ₊₁, …, xₙ are zero; in this case φₖ is to be zero.
-
-The forward and inverse transformations between Cartesian and hyperspherical coordinates are implemented.
-
-```jldoctest
-julia> v = randn(SVector{4, Float64});  # A 4D vector
-
-julia> hsph = Hyperspherical(v);  # Convert to 4D hyperspherical coordinates
-
-julia> r = hsph.r; φ₁, φ₂, φ₃ = hsph.φ;
-
-julia> v_reconstructed = CartesianFromHyperspherical()(hsph);
-
-julia> v ≈ v_reconstructed  # Verify the inverse transformation
-true
-```
-"""
-struct Hyperspherical{T, A, N}
-    r::T
-    φ::SVector{N_minus_1, A} where {N_minus_1}
-
-    function Hyperspherical(r::T, φ::SVector{N_minus_1, A}) where {T, A, N_minus_1}
-        if N_minus_1 <= 1
-            throw(ArgumentError("N must be greater than 1"))
-        end
-        
-        new{T, A, N_minus_1+1}(r, φ)
-    end
-end
-
-function Hyperspherical(args...)
-    @assert length(args)>0
-
-    # Dispatch Hyperspherical(x::AbstractVector) should capture the case where args has length > 1
-    #   but is not a Tuple.
-    if length(args)==1
-        return args[1] # Trivial case, no need for Hyperspherical
-    elseif length(args)==2
-        return Polar(args...)
-    elseif length(args)==3
-        return Spherical(args...)
-    end
-
-    println(typeof(SVector(args[2:end])))
-    return Hyperspherical(args[1], SVector(args[2:end]))
-end
-
-function Hyperspherical(x::AbstractVector)
-    return HypersphericalFromCartesian()(x)
-end
-
-Base.show(io::IO, x::Hyperspherical) = print(io, "Hyperspherical(r=$(x.r), φ=[ $(reduce((str1,str2)->"$(str1), $(str2)", string.(x.φ))) ] rad)")
-Base.isapprox(p1::Hyperspherical, p2::Hyperspherical; kwargs...) = isapprox(p1.r, p2.r; kwargs...) && isapprox(p1.φ, p2.φ; kwargs...)
-
-"""
-    HypersphericalFromCartesian()
-
-Transformation from ND point to `Hyperspherical` type
-"""
-struct HypersphericalFromCartesian <: Transformation; end
-"""
-    CartesianFromHyperspherical()
-
-Transformation from `Hyperspherical` type to `SVector{N}` type
-"""
-struct CartesianFromHyperspherical <: Transformation; end
-
 # function (::HypersphericalFromCartesian)(x::AbstractVector)
-    # N = length(x)
-    # r = norm(x)
-    # φ = NTuple{N-1, eltype(x)}(undef)
+    
+#     N = length(x)
+#     r = norm(x)
+#     φ = NTuple{N-1, eltype(x)}(undef)
 
-    # φ[1] = atan2(norm(x[2:end]), x[1])
-    # for i in 2:(N-2)
-    #     if norm(x[i:end]) == 0
-    #         φ[i] = zero(eltype(x))
-    #     else
-    #         φ[i] = atan2(norm(x[i+1:end]), x[i])
-    #     end
-    # end
-    # φ[N-1] = atan2(x[end], x[end-1])
+#     φ[1] = atan2(norm(x[2:end]), x[1])
+#     for i in 2:(N-2)
+#         if norm(x[i:end]) == 0
+#             φ[i] = zero(eltype(x))
+#         else
+#             φ[i] = atan2(norm(x[i+1:end]), x[i])
+#         end
+#     end
+#     φ[N-1] = atan2(x[end], x[end-1])
 
-    # return Hyperspherical(r, φ)
+#     return Hyperspherical(r, φ)
 # end
 
+function (::HypersphericalFromCartesian)(x::AbstractVector)
+    HypersphericalFromCartesian()(SVector{length(x),eltype(x)}(x))
+end
+
+function (::HypersphericalFromCartesian)(x::SVector{n, T}) where {n, T}
+
+    if length(x)==1
+        return x
+    elseif length(x)==2
+        return Polar(x)
+    elseif length(x)==3
+        return Spherical(x)
+    end
+
+    radius = norm(x)
+    floatType = eltype(radius)
+    angles = SizedArray(zeros(SVector{n-1, floatType}))
+
+    only_nulls = false
+
+    for i in n:-1:1
+        if i == 1
+            continue
+        elseif i == n
+            if (x[n] ≠ 0 || x[n-1] ≠ 0)
+                angles[n-1] = 2*atan(x[n]/( x[n-1] + norm([ x[n-1], x[n] ]) ))
+                only_nulls = false
+            else
+                angles[n-1] = floatType(0)
+                only_nulls = true
+            end
+        else
+            if only_nulls == true && x[i] == 0 && x[i-1] ≠ 0
+                if x[i-1] < 0
+                    angles[i-1] = floatType(pi)
+                elseif x[i-1] > 0
+                    angles[i-1] = floatType(0)
+                else
+                    throw("UNREACHABLE")
+                end;
+                only_nulls = false
+            elseif only_nulls == true && x[i] == 0 && x[i-1] == 0
+                angles[i-1] = floatType(0)
+            else
+                angles[i-1] = atan(norm(x[i:n])/x[i-1])
+            end
+        end
+    end
+
+    Hyperspherical(radius, SVector(angles))
+end
 
 # ############# ?
 # function transform_deriv(::HypersphericalFromCartesian, x::AbstractVector)
