@@ -405,58 +405,56 @@ end
 function Hyperspherical(args...)
     @assert length(args)>0
 
+    # Dispatch Hyperspherical(x::AbstractVector) should capture the case where args has length > 1
+    #   but is not a Tuple.
     if length(args)==1
-        # TODO
+        return args[1] # Trivial case, no need for Hyperspherical
     elseif length(args)==2
         return Polar(args...)
+    elseif length(args)==3
+        return Spherical(args...)
     end
+
     println(typeof(SVector(args[2:end])))
     return Hyperspherical(args[1], SVector(args[2:end]))
 end
 
+function Hyperspherical(x::AbstractVector)
+    return HypersphericalFromCartesian()(x)
+end
 
-# # NON: on veut plutôt qu'il sépare la première coordonée et les autres, et crée les coordonées 
-# # en utilisant les bons types
-# function Hyperspherical(x::AbstractVector)
-#     HypersphericalFromCartesian()(x)
-# end
+Base.show(io::IO, x::Hyperspherical) = print(io, "Hyperspherical(r=$(x.r), φ=[ $(reduce((str1,str2)->"$(str1), $(str2)", string.(x.φ))) ] rad)")
+Base.isapprox(p1::Hyperspherical, p2::Hyperspherical; kwargs...) = isapprox(p1.r, p2.r; kwargs...) && isapprox(p1.φ, p2.φ; kwargs...)
 
-# """
-#     HypersphericalFromCartesian()
+"""
+    HypersphericalFromCartesian()
 
-# Transformation from ND point to `Hyperspherical` type
-# """
-# struct HypersphericalFromCartesian <: Transformation; end
-# """
-#     CartesianFromHyperspherical()
+Transformation from ND point to `Hyperspherical` type
+"""
+struct HypersphericalFromCartesian <: Transformation; end
+"""
+    CartesianFromHyperspherical()
 
-# Transformation from `Hyperspherical` type to `SVector{N}` type
-# """
-# struct CartesianFromHyperspherical <: Transformation; end
-
-
-# ############# ?
-# Base.show(io::IO, x::Hyperspherical) = print(io, "Hyperspherical(r=$(x.r), θ=$(x.θ) rad, ϕ=$(x.ϕ) rad)")
-# Base.isapprox(p1::Hyperspherical, p2::Hyperspherical; kwargs...) =
-#     isapprox(p1.r, p2.r; kwargs...) && isapprox(p1.θ, p2.θ; kwargs...) && isapprox(p1.ϕ, p2.ϕ; kwargs...)
-
+Transformation from `Hyperspherical` type to `SVector{N}` type
+"""
+struct CartesianFromHyperspherical <: Transformation; end
 
 # function (::HypersphericalFromCartesian)(x::AbstractVector)
-#     N = length(x)
-#     r = norm(x)
-#     φ = NTuple{N-1, eltype(x)}(undef)
+    # N = length(x)
+    # r = norm(x)
+    # φ = NTuple{N-1, eltype(x)}(undef)
 
-#     φ[1] = atan2(norm(x[2:end]), x[1])
-#     for i in 2:(N-2)
-#         if norm(x[i:end]) == 0
-#             φ[i] = zero(eltype(x))
-#         else
-#             φ[i] = atan2(norm(x[i+1:end]), x[i])
-#         end
-#     end
-#     φ[N-1] = atan2(x[end], x[end-1])
+    # φ[1] = atan2(norm(x[2:end]), x[1])
+    # for i in 2:(N-2)
+    #     if norm(x[i:end]) == 0
+    #         φ[i] = zero(eltype(x))
+    #     else
+    #         φ[i] = atan2(norm(x[i+1:end]), x[i])
+    #     end
+    # end
+    # φ[N-1] = atan2(x[end], x[end-1])
 
-#     return Hyperspherical(r, φ)
+    # return Hyperspherical(r, φ)
 # end
 
 
