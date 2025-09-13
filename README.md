@@ -1,6 +1,8 @@
 # CoordinateTransformations
 
 [![Build Status](https://github.com/JuliaGeometry/CoordinateTransformations.jl/workflows/CI/badge.svg)](https://github.com/JuliaGeometry/CoordinateTransformations.jl/actions?query=workflow%3ACI)
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaGeometry.github.io/CoordinateTransformations.jl/stable)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaGeometry.github.io/CoordinateTransformations.jl/dev)
 
 **CoordinateTransformations** is a Julia package to manage simple or complex
 networks of coordinate system transformations. Transformations can be easily
@@ -12,7 +14,7 @@ and automatic differentiation makes it easy to perform optimization and
 therefore ideal for computer vision applications such as SLAM (simultaneous
 localization and mapping).
 
-The package provide two main pieces of functionality
+The package provides two main pieces of functionality
 
 1. Primarily, an interface for defining `Transformation`s and applying
    (by calling), inverting (`inv()`), composing (`∘` or `compose()`) and
@@ -178,10 +180,18 @@ julia> from_points = [[0, 0], [1, 0], [0, 1]];
 julia> to_points   = [[1, 1], [3, 1], [1.5, 3]];
 
 julia> AffineMap(from_points => to_points)
-AffineMap([1.9999999999999996 0.4999999999999999; -5.551115123125783e-16 2.0], [0.9999999999999999, 1.0000000000000002])
+AffineMap([2.0 0.5; 0.0 2.0], [1.0, 1.0])
 ```
 
 The points can be supplied as a collection of vectors or as a matrix with points as columns.
+
+If you want to restrict the transformation to be rigid (rotation + translation)
+or similar (rotation, translation, and scaling), use `kabsch` instead:
+
+```julia
+julia> rigid = kabsch(from_points => to_points)
+AffineMap([0.9912279006826346 0.132163720091018; -0.1321637200910178 0.9912279006826348], [1.4588694597421157, 1.380311939802794])
+```
 
 #### Perspective transformations
 
