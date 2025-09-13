@@ -517,6 +517,8 @@
             end
         end
 
+        include("coordinatesystems_nDim.jl")
+
         @testset "Units" begin
             xyz = SVector(1.0, 2.0, 3.0)u"m"
 
